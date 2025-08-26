@@ -415,8 +415,10 @@ crawler/*.csv
 crawler/*.json
 crawler/*.log
 
-# AI Models and Large Files
-models/
+# AI Models and Large Files (更具体的路径)
+ai_models/
+ml_models/
+trained_models/
 *.pkl
 *.joblib
 *.h5
