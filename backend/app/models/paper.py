@@ -20,6 +20,7 @@ class PaperBase(BaseModel):
 class Paper(PaperBase):
     """完整论文模型"""
     id: str
+    short_id: Optional[str] = None
     journal_impact_factor: Optional[float] = None
     citation_count: int = 0
     download_count: int = 0
@@ -29,6 +30,16 @@ class Paper(PaperBase):
     truth_value_score: Optional[float] = None
     research_field: str
     funding: List[str] = []
+    # 来自真实数据库的额外字段
+    journal_issn: Optional[str] = None
+    host_organization: Optional[str] = None
+    fwci: Optional[float] = None
+    citation_percentile: Optional[float] = None
+    publication_date: Optional[str] = None
+    primary_topic: Optional[str] = None
+    topics: List[Dict[str, Any]] = []
+    keywords_display: Optional[str] = None
+    domain: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -49,6 +60,7 @@ class PaperUpdate(BaseModel):
 class PaperSummary(BaseModel):
     """论文摘要模型（用于列表显示）"""
     id: str
+    short_id: Optional[str] = None
     title: str
     author_names: List[str]
     year: int

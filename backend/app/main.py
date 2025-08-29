@@ -112,19 +112,74 @@ async def health_check():
     except Exception as e:
         raise HTTPException(status_code=503, detail="Service unavailable")
 
+# 数据库管理端点
+@app.get("/api/database/info", tags=["数据库管理"])
+async def get_database_info():
+    """
+    获取数据库信息
+    """
+    from .db.database import get_database_info
+    return await get_database_info()
+
+@app.get("/api/database/health", tags=["数据库管理"])
+async def check_database_health():
+    """
+    检查数据库健康状态
+    """
+    from .db.database import check_database_health
+    return await check_database_health()
+
+@app.post("/api/database/initialize", tags=["数据库管理"])
+async def initialize_database():
+    """
+    手动初始化数据库（创建缺失的表和索引）
+    """
+    from .db.database import initialize_database
+    success = await initialize_database()
+    if success:
+        return {"message": "数据库初始化成功", "status": "success"}
+    else:
+        raise HTTPException(status_code=500, detail="数据库初始化失败")
+
+@app.get("/api/database/config", tags=["数据库管理"])
+async def get_database_config():
+    """
+    获取数据库配置信息
+    """
+    from .db.config import db_config
+    return {
+        "current_database": db_config.get_current_database(),
+        "available_databases": db_config.list_available_databases(),
+        "recommended_database": db_config.get_recommended_database()
+    }
+
+@app.post("/api/database/switch/{db_name}", tags=["数据库管理"])
+async def switch_database(db_name: str):
+    """
+    切换数据库
+    """
+    from .db.config import db_config
+    success = db_config.switch_database(db_name)
+    if success:
+        return {"message": f"成功切换到数据库: {db_name}", "status": "success"}
+    else:
+        raise HTTPException(status_code=400, detail=f"无法切换到数据库: {db_name}")
+
 # API信息端点
 @app.get("/api/info", tags=["系统"])
 async def api_info():
     """
     获取API详细信息和统计数据
     """
-    from .db.mock_db import db
+    from .db.database import db, user_manager
+    
+    stats = await db.get_database_stats()
     
     return {
         "api_version": "1.0.0",
-        "total_papers": len(db.papers),
-        "total_authors": len(db.authors),
-        "total_users": len(db.users),
+        "total_papers": stats["total_papers"],
+        "total_authors": "动态计算",  # 从论文中聚合
+        "total_users": await user_manager.get_user_count(),
         "available_endpoints": {
             "authentication": [
                 "/api/auth/register",
@@ -238,16 +293,12 @@ async def reset_mock_data():
     
     ⚠️ 警告：此操作将清除所有用户数据
     """
-    from .db.mock_db import MockDatabase
+    from .db.database import RealDatabase
     
-    # 重新初始化数据库
-    from .db import mock_db
-    mock_db.db = MockDatabase()
-    
+    # 注意：真实数据库不支持重置操作
     return {
-        "message": "模拟数据已重置",
-        "timestamp": "2023-12-01T10:00:00Z",
-        "warning": "所有用户数据已被清除"
+        "message": "真实数据库不支持重置操作",
+        "warning": "此功能在生产环境中不可用"
     }
 
 # 系统统计端点
@@ -256,31 +307,14 @@ async def get_system_stats():
     """
     获取系统统计信息
     """
-    from .db.mock_db import db
+    from .db.database import db
     
-    # 计算统计数据
-    total_citations = sum(paper["citation_count"] for paper in db.papers)
-    avg_citations = total_citations / len(db.papers) if db.papers else 0
-    
-    recent_papers = [
-        paper for paper in db.papers 
-        if paper["year"] >= 2020
-    ]
-    
-    research_fields = {}
-    for paper in db.papers:
-        field = paper["research_field"]
-        research_fields[field] = research_fields.get(field, 0) + 1
+    # 获取数据库统计信息
+    stats = await db.get_database_stats()
+    research_fields = await db.get_research_fields_stats()
     
     return {
-        "database_stats": {
-            "total_papers": len(db.papers),
-            "total_authors": len(db.authors),
-            "total_users": len(db.users),
-            "recent_papers": len(recent_papers),
-            "total_citations": total_citations,
-            "average_citations": round(avg_citations, 2)
-        },
+        "database_stats": stats,
         "research_fields": research_fields,
         "system_status": {
             "uptime": "running",

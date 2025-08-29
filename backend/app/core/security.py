@@ -155,7 +155,7 @@ def verify_refresh_token(token: str) -> Dict[str, Any]:
 
 def validate_password_strength(password: str) -> tuple[bool, str]:
     """
-    验证密码强度
+    验证密码强度（宽松版本）
     
     Args:
         password: 要验证的密码
@@ -163,17 +163,8 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
     Returns:
         (是否有效, 错误消息)
     """
-    if len(password) < 8:
-        return False, "密码长度至少8位"
-    
-    if not any(c.islower() for c in password):
-        return False, "密码必须包含小写字母"
-    
-    if not any(c.isupper() for c in password):
-        return False, "密码必须包含大写字母"
-    
-    if not any(c.isdigit() for c in password):
-        return False, "密码必须包含数字"
+    if len(password) < 3:
+        return False, "密码长度至少3位"
     
     return True, ""
 

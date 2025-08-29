@@ -108,7 +108,7 @@
             v-for="paper in trendingPapers"
             :key="paper.id"
             class="card-hover p-6 cursor-pointer"
-            @click="$router.push(`/papers/${paper.id}`)"
+            @click="$router.push(`/papers/${paper.short_id || paper.id}`)"
           >
             <h3 class="font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2">
               {{ paper.title }}

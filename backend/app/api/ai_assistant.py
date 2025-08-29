@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from ..models.paper import AIAnalysisResult
 from ..models.user import User
 from ..api.auth import get_current_user
-from ..db.mock_db import db
+from ..db.database import db
 
 router = APIRouter(prefix="/ai-assistant", tags=["AI助手"])
 
@@ -21,7 +21,7 @@ async def summarize_paper(
     
     - **paper_id**: 论文ID
     """
-    paper = db.get_paper_by_id(paper_id)
+    paper = await db.get_paper_by_id(paper_id)
     if not paper:
         raise HTTPException(status_code=404, detail="论文不存在")
     
@@ -65,7 +65,7 @@ async def compare_papers_ai(
     # 验证所有论文都存在
     papers = []
     for paper_id in paper_ids:
-        paper = db.get_paper_by_id(paper_id)
+        paper = await db.get_paper_by_id(paper_id)
         if not paper:
             raise HTTPException(status_code=404, detail=f"论文 {paper_id} 不存在")
         papers.append(paper)
@@ -98,7 +98,7 @@ async def analyze_research_trends(
     """
     # 获取该领域的论文
     field_papers = [
-        paper for paper in db.papers 
+        paper for paper in await db.get_papers(limit=1000) 
         if research_field.lower() in paper["research_field"].lower()
     ]
     
@@ -133,7 +133,7 @@ async def explain_paper(
     - **paper_id**: 论文ID
     - **aspect**: 解读方面 (methodology: 方法论, contribution: 贡献, significance: 意义)
     """
-    paper = db.get_paper_by_id(paper_id)
+    paper = await db.get_paper_by_id(paper_id)
     if not paper:
         raise HTTPException(status_code=404, detail="论文不存在")
     
@@ -165,12 +165,12 @@ async def recommend_related_readings(
     - **paper_id**: 基准论文ID
     - **limit**: 推荐数量限制
     """
-    paper = db.get_paper_by_id(paper_id)
+    paper = await db.get_paper_by_id(paper_id)
     if not paper:
         raise HTTPException(status_code=404, detail="论文不存在")
     
     # 查找相关论文
-    related_papers = find_related_papers(paper, limit)
+    related_papers = await find_related_papers(paper, limit)
     
     # 生成推荐理由
     recommendations = []
@@ -201,7 +201,7 @@ async def generate_research_ideas(
     
     - **paper_id**: 论文ID
     """
-    paper = db.get_paper_by_id(paper_id)
+    paper = await db.get_paper_by_id(paper_id)
     if not paper:
         raise HTTPException(status_code=404, detail="论文不存在")
     
@@ -354,11 +354,12 @@ def generate_paper_explanation(paper: dict, aspect: str) -> str:
     
     return " ".join(explanations)
 
-def find_related_papers(base_paper: dict, limit: int) -> List[dict]:
+async def find_related_papers(base_paper: dict, limit: int) -> List[dict]:
     """查找相关论文"""
     related_papers = []
     
-    for paper in db.papers:
+    papers = await db.get_papers(limit=1000)  # 获取更多论文
+    for paper in papers:
         if paper["id"] == base_paper["id"]:
             continue
         

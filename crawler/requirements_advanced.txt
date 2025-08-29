@@ -1,0 +1,5 @@
+# 高级爬虫依赖包
+aiohttp>=3.8.0
+asyncio
+sqlite3
+

@@ -6,14 +6,14 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Query, Depends, HTTPException
 from ..models.paper import SearchRequest, SearchResponse, PaperSummary, SearchFilters
 from ..models.user import User
-from ..api.auth import get_current_user
-from ..db.mock_db import db
+from ..api.auth import get_current_user, get_current_user_optional
+from ..db.database import db, user_manager
 from ..algorithms.recommender import rerank_search_results
 
 router = APIRouter(prefix="/search", tags=["搜索"])
 
 @router.post("/", response_model=SearchResponse, summary="论文搜索")
-async def search_papers(search_request: SearchRequest, current_user: Optional[User] = Depends(get_current_user)):
+async def search_papers(search_request: SearchRequest, current_user: Optional[User] = Depends(get_current_user_optional)):
     """
     论文搜索API
     
@@ -31,7 +31,7 @@ async def search_papers(search_request: SearchRequest, current_user: Optional[Us
     start_time = time.time()
     
     # 执行搜索
-    results = perform_search(
+    results = await perform_search(
         query=search_request.query,
         search_type=search_request.search_type,
         filters=search_request.filters
@@ -46,7 +46,7 @@ async def search_papers(search_request: SearchRequest, current_user: Optional[Us
     
     # 如果用户已登录，应用个性化重排序
     if current_user:
-        user_data = db.get_user_by_id(current_user.id)
+        user_data = await user_manager.get_user_by_id(current_user.id)
         if user_data:
             sorted_results = rerank_search_results(
                 user_id=current_user.id,
@@ -55,7 +55,7 @@ async def search_papers(search_request: SearchRequest, current_user: Optional[Us
             )
             
             # 记录搜索历史
-            db.add_search_history(current_user.id, search_request.query)
+            await user_manager.add_search_history(current_user.id, search_request.query)
     
     # 分页
     total = len(sorted_results)
@@ -66,6 +66,7 @@ async def search_papers(search_request: SearchRequest, current_user: Optional[Us
     for result in paginated_results:
         summary = PaperSummary(
             id=result["id"],
+            short_id=result.get("short_id"),
             title=result["title"],
             author_names=result["author_names"],
             year=result["year"],
@@ -102,7 +103,8 @@ async def get_search_suggestions(
     q_lower = q.lower()
     
     # 从论文标题中提取建议
-    for paper in db.papers:
+    papers = await db.get_papers(limit=100)  # 获取一些论文用于建议
+    for paper in papers:
         title_words = paper["title"].lower().split()
         for word in title_words:
             if word.startswith(q_lower) and len(word) > len(q):
@@ -132,13 +134,15 @@ async def get_available_filters():
     获取可用的搜索过滤器选项
     """
     # 从数据库中提取所有可能的过滤器值
-    years = sorted(set(paper["year"] for paper in db.papers), reverse=True)
-    journals = sorted(set(paper["journal"] for paper in db.papers))
-    research_fields = sorted(set(paper["research_field"] for paper in db.papers))
+    papers = await db.get_papers(limit=1000)  # 获取更多论文用于统计
+    years = sorted(set(paper["year"] for paper in papers if paper["year"]), reverse=True)
+    journals = sorted(set(paper["journal"] for paper in papers if paper["journal"]))
+    research_fields = sorted(set(paper["research_field"] for paper in papers if paper["research_field"]))
     authors = []
     
-    for paper in db.papers:
-        authors.extend(paper["author_names"])
+    for paper in papers:
+        if paper["author_names"]:
+            authors.extend(paper["author_names"])
     unique_authors = sorted(set(authors))
     
     return {
@@ -184,17 +188,11 @@ async def get_search_history(
     """
     获取用户的搜索历史
     """
-    user_history = [
-        entry for entry in db.search_history 
-        if entry["user_id"] == current_user.id
-    ]
-    
-    # 按时间倒序排列
-    user_history.sort(key=lambda x: x["timestamp"], reverse=True)
+    history_queries = await user_manager.get_search_history(current_user.id, limit)
     
     return {
-        "history": user_history[:limit],
-        "total": len(user_history)
+        "history": [{"query": query, "timestamp": ""} for query in history_queries],
+        "total": len(history_queries)
     }
 
 @router.delete("/history", summary="清除搜索历史")
@@ -202,28 +200,20 @@ async def clear_search_history(current_user: User = Depends(get_current_user)):
     """
     清除用户的搜索历史
     """
-    # 移除用户的搜索历史
-    db.search_history = [
-        entry for entry in db.search_history 
-        if entry["user_id"] != current_user.id
-    ]
+    success = await user_manager.clear_search_history(current_user.id)
     
-    return {"message": "搜索历史已清除"}
+    if success:
+        return {"message": "搜索历史已清除"}
+    else:
+        return {"message": "搜索历史已经为空"}
 
 # 辅助函数
-def perform_search(query: str, search_type: str = "hybrid", filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+async def perform_search(query: str, search_type: str = "hybrid", filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """
     执行搜索逻辑
     """
-    if search_type == "semantic":
-        # 语义搜索 - 这里简化为包含更多上下文的搜索
-        return semantic_search(query, filters)
-    elif search_type == "exact":
-        # 精确搜索
-        return exact_search(query, filters)
-    else:
-        # 混合搜索（默认）
-        return hybrid_search(query, filters)
+    # 直接使用数据库的搜索功能
+    return await db.search_papers(query, filters)
 
 def hybrid_search(query: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """

@@ -12,7 +12,7 @@
           v-for="paper in papers"
           :key="paper.id"
           class="card-hover p-6 cursor-pointer"
-          @click="$router.push(`/papers/${paper.id}`)"
+          @click="$router.push(`/papers/${paper.short_id || paper.id}`)"
         >
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             {{ paper.title }}

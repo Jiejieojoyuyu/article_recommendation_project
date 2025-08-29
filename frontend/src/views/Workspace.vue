@@ -46,7 +46,7 @@
                 v-for="rec in recommendations"
                 :key="rec.paper.id"
                 class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-4 rounded"
-                @click="$router.push(`/papers/${rec.paper.id}`)"
+                @click="$router.push(`/papers/${rec.paper.short_id || rec.paper.id}`)"
               >
                 <h3 class="font-medium text-gray-900 dark:text-white mb-1">{{ rec.paper.title }}</h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ rec.paper.author_names.join(', ') }}</p>
@@ -64,7 +64,7 @@
                 v-for="paper in recentBookmarks"
                 :key="paper.id"
                 class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-4 rounded"
-                @click="$router.push(`/papers/${paper.id}`)"
+                @click="$router.push(`/papers/${paper.short_id || paper.id}`)"
               >
                 <h3 class="font-medium text-gray-900 dark:text-white mb-1">{{ paper.title }}</h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400">{{ paper.author_names.join(', ') }}</p>

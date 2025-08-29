@@ -76,7 +76,7 @@
             v-for="paper in papers"
             :key="paper.id"
             class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-4 rounded"
-            @click="$router.push(`/papers/${paper.id}`)"
+            @click="$router.push(`/papers/${paper.short_id || paper.id}`)"
           >
             <h3 class="font-medium text-gray-900 dark:text-white mb-1">{{ paper.title }}</h3>
             <div class="flex items-center justify-between text-sm text-gray-500">

@@ -1,6 +1,7 @@
 # Academic Paper Recommendation System - Quick Start
 Write-Host "Starting Academic Paper Recommendation System..." -ForegroundColor Green
-
+Write-Host "Activating virtual environment..." -ForegroundColor Yellow
+& "./article_recommend/Scripts/Activate.ps1"
 # Check if in correct directory
 if (!(Test-Path "backend") -or !(Test-Path "frontend")) {
     Write-Host "Please run this script from the project root directory" -ForegroundColor Red

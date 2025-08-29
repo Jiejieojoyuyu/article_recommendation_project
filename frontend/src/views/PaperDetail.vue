@@ -85,7 +85,7 @@
               v-for="ref in references"
               :key="ref.id"
               class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-3 rounded"
-              @click="$router.push(`/papers/${ref.id}`)"
+              @click="$router.push(`/papers/${ref.short_id || ref.id}`)"
             >
               <h4 class="font-medium text-gray-900 dark:text-white text-sm">{{ ref.title }}</h4>
               <p class="text-xs text-gray-500 dark:text-gray-400">{{ ref.author_names.join(', ') }}</p>
@@ -101,7 +101,7 @@
               v-for="citation in citations"
               :key="citation.id"
               class="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-3 rounded"
-              @click="$router.push(`/papers/${citation.id}`)"
+              @click="$router.push(`/papers/${citation.short_id || citation.id}`)"
             >
               <h4 class="font-medium text-gray-900 dark:text-white text-sm">{{ citation.title }}</h4>
               <p class="text-xs text-gray-500 dark:text-gray-400">{{ citation.author_names.join(', ') }}</p>

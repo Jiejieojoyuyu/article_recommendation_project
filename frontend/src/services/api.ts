@@ -70,15 +70,15 @@ export const api = {
   // 论文相关
   papers: {
     list: (params: any) => apiClient.get('/papers/', { params }),
-    get: (id: string) => apiClient.get(`/papers/${id}`),
-    truthValue: (id: string) => apiClient.get(`/papers/${id}/truth-value`),
-    references: (id: string) => apiClient.get(`/papers/${id}/references`),
-    citations: (id: string) => apiClient.get(`/papers/${id}/citations`),
-    graph: (id: string, params?: any) => apiClient.get(`/papers/${id}/graph`, { params }),
-    similar: (id: string) => apiClient.get(`/papers/${id}/similar`),
-    bookmark: (id: string) => apiClient.post(`/papers/${id}/bookmark`),
-    unbookmark: (id: string) => apiClient.delete(`/papers/${id}/bookmark`),
+    get: (id: string) => apiClient.get('/papers/detail', { params: { paper_id: id } }),
+    truthValue: (id: string) => apiClient.get('/papers/truth-value', { params: { paper_id: id } }),
+    references: (id: string) => apiClient.get('/papers/references', { params: { paper_id: id } }),
+    citations: (id: string) => apiClient.get('/papers/citations', { params: { paper_id: id } }),
+    similar: (id: string) => apiClient.get('/papers/similar', { params: { paper_id: id } }),
+    bookmark: (id: string) => apiClient.post('/papers/bookmark', {}, { params: { paper_id: id } }),
+    unbookmark: (id: string) => apiClient.delete('/papers/bookmark', { params: { paper_id: id } }),
     compare: (id1: string, id2: string) => apiClient.post('/papers/compare', { paper_id1: id1, paper_id2: id2 }),
+    citationNetwork: (id: string) => apiClient.get('/papers/citation-network', { params: { paper_id: id } }),
   },
 
   // 作者相关

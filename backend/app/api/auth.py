@@ -2,6 +2,7 @@
 用户认证API接口
 """
 from datetime import timedelta
+from typing import Optional
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from ..models.user import UserCreate, UserLogin, User, UserPublic, Token, UserUpdate
@@ -9,7 +10,7 @@ from ..core.security import (
     verify_password, get_password_hash, create_access_token, 
     verify_token, validate_password_strength
 )
-from ..db.mock_db import db
+from ..db.database import user_manager
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 security = HTTPBearer()
@@ -27,7 +28,7 @@ async def register_user(user_data: UserCreate):
     - **research_interests**: 研究兴趣列表（可选）
     """
     # 检查用户名是否已存在
-    existing_user = db.get_user_by_username(user_data.username)
+    existing_user = await user_manager.get_user_by_username(user_data.username)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -35,12 +36,12 @@ async def register_user(user_data: UserCreate):
         )
     
     # 检查邮箱是否已被使用
-    for user in db.users:
-        if user["email"] == user_data.email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="邮箱已被注册"
-            )
+    existing_email_user = await user_manager.get_user_by_email(user_data.email)
+    if existing_email_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="邮箱已被注册"
+        )
     
     # 验证密码强度
     is_valid, error_msg = validate_password_strength(user_data.password)
@@ -56,7 +57,7 @@ async def register_user(user_data: UserCreate):
     new_user_data["password_hash"] = hashed_password
     del new_user_data["password"]  # 删除明文密码
     
-    created_user = db.create_user(new_user_data)
+    created_user = await user_manager.create_user(new_user_data)
     
     return UserPublic(**created_user)
 
@@ -71,7 +72,7 @@ async def login(user_credentials: UserLogin):
     返回JWT访问令牌
     """
     # 验证用户凭据
-    user = db.get_user_by_username(user_credentials.username)
+    user = await user_manager.get_user_by_username(user_credentials.username)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -93,7 +94,7 @@ async def login(user_credentials: UserLogin):
     
     # 更新最后登录时间
     from datetime import datetime
-    db.update_user(user["id"], {"last_login": datetime.now().isoformat()})
+    await user_manager.update_last_login(user["id"])
     
     return {
         "access_token": access_token,
@@ -108,7 +109,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     payload = verify_token(token)
     username = payload.get("sub")
     
-    user = db.get_user_by_username(username)
+    user = await user_manager.get_user_by_username(username)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -139,16 +140,16 @@ async def update_current_user(
     """
     # 检查邮箱是否已被其他用户使用
     if user_update.email:
-        for user in db.users:
-            if user["email"] == user_update.email and user["id"] != current_user.id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="邮箱已被其他用户使用"
-                )
+        existing_email_user = await user_manager.get_user_by_email(user_update.email)
+        if existing_email_user and existing_email_user["id"] != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="邮箱已被其他用户使用"
+            )
     
     # 更新用户信息
     update_data = user_update.model_dump(exclude_unset=True)
-    updated_user = db.update_user(current_user.id, update_data)
+    updated_user = await user_manager.update_user(current_user.id, update_data)
     
     if not updated_user:
         raise HTTPException(
@@ -187,7 +188,7 @@ async def change_password(
     
     # 更新密码
     new_password_hash = get_password_hash(new_password)
-    db.update_user(current_user.id, {"password_hash": new_password_hash})
+    await user_manager.update_user(current_user.id, {"password_hash": new_password_hash})
     
     return {"message": "密码修改成功"}
 
@@ -226,13 +227,12 @@ async def delete_account(
             detail="密码错误"
         )
     
-    # 从数据库中移除用户
-    for i, user in enumerate(db.users):
-        if user["id"] == current_user.id:
-            del db.users[i]
-            break
-    
-    return {"message": "账户已删除"}
+    # TODO: 实现从数据库中删除用户
+    # 暂时禁用删除功能，因为需要在UserManager中实现delete_user方法
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="删除账户功能暂时不可用"
+    )
 
 # 依赖函数，供其他模块使用
 def get_current_user_dependency():
@@ -240,4 +240,25 @@ def get_current_user_dependency():
     获取当前用户的依赖函数，供其他路由使用
     """
     return Depends(get_current_user)
+
+async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))) -> Optional[User]:
+    """
+    获取当前登录用户（可选）
+    如果没有提供认证凭据，返回None
+    """
+    if not credentials:
+        return None
+    
+    try:
+        token = credentials.credentials
+        payload = verify_token(token)
+        username = payload.get("sub")
+        
+        user = await user_manager.get_user_by_username(username)
+        if user is None:
+            return None
+            
+        return User(**user)
+    except:
+        return None
 
